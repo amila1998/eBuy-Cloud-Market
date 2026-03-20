@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-kraft
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # PLAINTEXT_EXTERNAL : for clients on the host machine (localhost:9092)
+      # PLAINTEXT_HOST     : for Docker containers reaching Kafka via bridge host IP (172.17.0.1:9092)
+      # PLAINTEXT_INTERNAL : for broker-to-broker / inter-container communication
+      KAFKA_LISTENERS: >-
+        PLAINTEXT_INTERNAL://0.0.0.0:29092,
+        PLAINTEXT_EXTERNAL://0.0.0.0:9092,
+        PLAINTEXT_HOST://0.0.0.0:9094,
+        CONTROLLER://0.0.0.0:9093
+
+      KAFKA_ADVERTISED_LISTENERS: >-
+        PLAINTEXT_INTERNAL://kafka:29092,
+        PLAINTEXT_EXTERNAL://localhost:9092,
+        PLAINTEXT_HOST://172.17.0.1:9094
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        PLAINTEXT_INTERNAL:PLAINTEXT,
+        PLAINTEXT_EXTERNAL:PLAINTEXT,
+        PLAINTEXT_HOST:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+
+    ports:
+      - "9092:9092"   # host clients
+      - "9093:9093"   # controller
+      - "9094:9094"   # Docker-container clients (bridge host IP)
+      - "29092:29092" # internal broker traffic
+
+    restart: unless-stopped

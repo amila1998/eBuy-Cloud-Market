@@ -1,0 +1,152 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  # ─── Test all services ───────────────────────────────────────────────────────
+  test-auth:
+    name: Test Auth Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: auth-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: auth-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  test-product:
+    name: Test Product Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: product-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: product-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  test-order:
+    name: Test Order Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: order-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: order-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  test-payment:
+    name: Test Payment Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: payment-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: payment-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  # ─── Build & Push Docker images to ECR (only on main) ───────────────────────
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    needs: [test-auth, test-product, test-order, test-payment]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      matrix:
+        service:
+          - name: auth-service
+            port: 3001
+          - name: product-service
+            port: 3002
+          - name: order-service
+            port: 3003
+          - name: payment-service
+            port: 3004
+          - name: frontend
+            port: 3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          SERVICE: ${{ matrix.service.name }}
+        run: |
+          docker build -t $ECR_REGISTRY/$SERVICE:$IMAGE_TAG ./$SERVICE
+          docker tag $ECR_REGISTRY/$SERVICE:$IMAGE_TAG $ECR_REGISTRY/$SERVICE:latest
+          docker push $ECR_REGISTRY/$SERVICE:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$SERVICE:latest
+
+  # ─── Deploy to AWS ECS ───────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - product-service
+          - order-service
+          - payment-service
+          - frontend
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster ebuy-cluster \
+            --service ${{ matrix.service }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}

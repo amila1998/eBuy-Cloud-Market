@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # ─── Infrastructure ───────────────────────────────────────────────────────────
+
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: redis-stack
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    environment:
+      - REDIS_ARGS=--requirepass yourpassword --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "yourpassword", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-kraft
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: >-
+        PLAINTEXT_INTERNAL://0.0.0.0:29092,
+        PLAINTEXT_EXTERNAL://0.0.0.0:9092,
+        CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: >-
+        PLAINTEXT_INTERNAL://kafka:29092,
+        PLAINTEXT_EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        PLAINTEXT_INTERNAL:PLAINTEXT,
+        PLAINTEXT_EXTERNAL:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "29092:29092"
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ─── Microservices ────────────────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_changeme_in_production}
+      REDIS_URL: redis://redis-stack:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-yourpassword}
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_changeme_in_production}
+      REDIS_URL: redis://redis-stack:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-yourpassword}
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_changeme_in_production}
+      REDIS_URL: redis://redis-stack:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-yourpassword}
+      KAFKA_BROKERS: kafka:29092
+      PRODUCT_SERVICE_URL: http://product-service:3002
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_changeme_in_production}
+      REDIS_URL: redis://redis-stack:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-yourpassword}
+      KAFKA_BROKERS: kafka:29092
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_AUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_PRODUCT_URL: http://localhost:3002
+      NEXT_PUBLIC_ORDER_URL: http://localhost:3003
+      NEXT_PUBLIC_PAYMENT_URL: http://localhost:3004
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+      - payment-service
+    restart: unless-stopped
+    networks:
+      - ebuy-network
+
+volumes:
+  redis-data:
+
+networks:
+  ebuy-network:
+    driver: bridge
