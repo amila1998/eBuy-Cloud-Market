@@ -129,11 +129,11 @@ jobs:
     strategy:
       matrix:
         service:
-          - auth-service-service-jikk8718
-          - product-service-service-loxiqwo9
-          - order-service-service-zov1o99d
-          - payment-service-service-0a11qt3l
-          - frontend-service-3hjv7vm4
+          - auth-service-service-2tv7uxi1
+          - product-service-service-s4aqsu66
+          - order-service-service-wp5wftr2
+          - payment-service-service-dh969ec0
+          - frontend-service-jfp8520s
 
     steps:
       - name: Configure AWS credentials
