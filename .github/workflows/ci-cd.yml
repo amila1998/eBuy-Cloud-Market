@@ -129,7 +129,7 @@ jobs:
     strategy:
       matrix:
         service:
-          - auth-service-service-2tv7uxi1
+          - auth-service-service-8tynak2z
           - product-service-service-s4aqsu66
           - order-service-service-wp5wftr2
           - payment-service-service-dh969ec0
