@@ -5,6 +5,7 @@ const fastifyCors = require('@fastify/cors');
 const authRoutes = require('./routes/auth');
 const { connectRedis } = require('./plugins/redis');
 
+
 const app = Fastify({ logger: true });
 
 app.register(fastifyCors, {
