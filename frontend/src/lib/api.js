@@ -5,7 +5,6 @@ const PRODUCT_URL = process.env.NEXT_PUBLIC_PRODUCT_URL || 'http://localhost:300
 const ORDER_URL = process.env.NEXT_PUBLIC_ORDER_URL || 'http://localhost:3003';
 const PAYMENT_URL = process.env.NEXT_PUBLIC_PAYMENT_URL || 'http://localhost:3004';
 
-
 const getAuthHeader = () => {
   if (typeof window === 'undefined') return {};
   const token = localStorage.getItem('token');
