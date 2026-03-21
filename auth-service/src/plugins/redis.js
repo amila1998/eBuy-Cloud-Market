@@ -8,6 +8,7 @@ const connectRedis = async () => {
     password: process.env.REDIS_PASSWORD || undefined,
   });
 
+  
   client.on('error', (err) => console.error('Redis client error', err));
   await client.connect();
   console.log('Connected to Redis');
