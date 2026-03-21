@@ -3,12 +3,21 @@ const { createClient } = require('redis');
 let client;
 
 const connectRedis = async () => {
+  const redisUrl = process.env.REDIS_URL;
+  console.log("🚀 ~ connectRedis ~ redisUrl:", redisUrl)
+
+  if (!redisUrl) {
+    throw new Error('REDIS_URL is not set');
+  }
+
   client = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-    password: process.env.REDIS_PASSWORD || undefined,
+    url: redisUrl,
   });
 
-  client.on('error', (err) => console.error('Redis client error', err));
+  client.on('error', (err) => {
+    console.error('Redis client error', err);
+  });
+
   await client.connect();
   console.log('Connected to Redis');
 };
