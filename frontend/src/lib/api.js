@@ -12,9 +12,9 @@ const getAuthHeader = () => {
 };
 
 export const authApi = {
-  register: (data) => axios.post(`${AUTH_URL}/api/auth/register`, data),
-  login: (data) => axios.post(`${AUTH_URL}/api/auth/login`, data),
-  me: () => axios.get(`${AUTH_URL}/api/auth/me`, { headers: getAuthHeader() }),
+  register: (data) => axios.post(`${AUTH_URL}/api/user/register`, data),
+  login: (data) => axios.post(`${AUTH_URL}/api/user/login`, data),
+  me: () => axios.get(`${AUTH_URL}/api/user/me`, { headers: getAuthHeader() }),
 };
 
 export const productApi = {

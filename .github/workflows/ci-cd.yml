@@ -129,11 +129,11 @@ jobs:
     strategy:
       matrix:
         service:
-          - auth-service-service-8tynak2z
-          - product-service-service-s4aqsu66
-          - order-service-service-wp5wftr2
-          - payment-service-service-dh969ec0
-          - frontend-service-jfp8520s
+          - auth-service-1
+          - product-service
+          - order-service
+          - payment-service
+          - frontend-service-exbcbvah
 
     steps:
       - name: Configure AWS credentials
@@ -146,7 +146,7 @@ jobs:
       - name: Force new ECS deployment
         run: |
           aws ecs update-service \
-            --cluster ebuy-cluster \
+            --cluster ebuy-micro-service-cluster \
             --service ${{ matrix.service }} \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}

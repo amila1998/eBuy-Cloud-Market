@@ -26,7 +26,7 @@ app.decorate('authenticate', async (request, reply) => {
   }
 });
 
-app.register(authRoutes, { prefix: '/api/auth' });
+app.register(authRoutes, { prefix: '/api/user' });
 
 app.get('/health', async () => ({ status: 'ok', service: 'auth-service' }));
 
