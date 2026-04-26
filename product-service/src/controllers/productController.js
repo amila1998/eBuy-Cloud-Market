@@ -75,10 +75,21 @@ const checkStock = async (request, reply) => {
   if (!raw) return reply.code(404).send({ error: 'Product not found' });
 
   const product = JSON.parse(raw);
-  const { quantity } = request.body;
+  const quantity = parseInt(request.body.quantity, 10);
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return reply.code(400).send({ error: 'Quantity must be a positive integer' });
+  }
+
   if (product.stock < quantity) {
     return reply.code(400).send({ available: false, stock: product.stock });
   }
+
+  product.stock -= quantity;
+  product.updatedAt = new Date().toISOString();
+
+  await redis.set(PRODUCT_KEY(product.id), JSON.stringify(product));
+
   return reply.send({ available: true, stock: product.stock, product });
 };
 
